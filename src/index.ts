@@ -1,1 +1,1 @@
-export * from './resolver.factory.js';
+export * from './resolver.js';

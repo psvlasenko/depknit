@@ -1,18 +1,21 @@
 {
   "compilerOptions": {
     "skipLibCheck": true,
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
     "moduleResolution": "NodeNext",
     "module": "NodeNext",
     "target": "ES2022",
+    "types": [
+      "node"
+    ],
     "strict": true,
     "declaration": true,
     "removeComments": true,
     "sourceMap": true,
+    "inlineSources": true,
     "noFallthroughCasesInSwitch": true,
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    "verbatimModuleSyntax": true
   },
   "include": [
     "src/**/*.ts"
