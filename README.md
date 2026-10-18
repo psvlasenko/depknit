@@ -284,6 +284,7 @@ An error thrown by a factory is propagated as is.
 
 ## Limitations
 
+* Provider detection reads the `factory` and `multiFactory` properties of object values. A proxy that returns functions for arbitrary properties or throws on unknown properties may be mistaken for a provider or fail during registration. Wrap such values in a factory: `client: () => client`.
 * Factories are synchronous. An `async` factory makes a component a `Promise`; create asynchronous resources before calling `makeDependencyResolver` and pass them as values.
 * There are no scopes or disposal: each resolver creates its own set of singletons.
 * Overloaded factories are found by their last four signatures: an incompatible overload followed by four identical signatures is not reported.

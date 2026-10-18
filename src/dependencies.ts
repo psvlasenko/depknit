@@ -44,11 +44,11 @@ export const makeDependencies = (providers: unknown): Dependencies => {
   // The components are read from the result once, so a getter in the result is called once too. They are cached only
   // when all of them are read: if a getter throws, a next access calls the multi-factory again and replaces none of
   // the components already given out.
-  const createMultiFactoryComponents = (key: string, provider: MultiFactoryProvider) => {
+  const createMultiFactoryComponents = (key: string, provider: MultiFactoryProvider, keys: readonly string[]) => {
     const result = provider.multiFactory(makeAliasedDependencies(provider.aliases)) as Record<string, unknown>;
-    assertValidMultiFactoryResult(key, provider.keys, result);
+    assertValidMultiFactoryResult(key, keys, result);
 
-    const entries = provider.keys.map(componentKey => [componentKey, result[componentKey]] as const);
+    const entries = keys.map(componentKey => [componentKey, result[componentKey]] as const);
 
     for (const [componentKey, component] of entries) {
       components.set(componentKey, component);
@@ -63,14 +63,15 @@ export const makeDependencies = (providers: unknown): Dependencies => {
     return components.get(key);
   };
 
-  const makeMultiFactoryComponentGetter = (componentKey: string, key: string, provider: MultiFactoryProvider) =>
-    (): unknown => {
-      if (!components.has(componentKey)) {
-        creationChain.track(key, () => createMultiFactoryComponents(key, provider));
-      }
+  const makeMultiFactoryComponentGetter = (
+    componentKey: string, key: string, provider: MultiFactoryProvider, keys: readonly string[],
+  ) => (): unknown => {
+    if (!components.has(componentKey)) {
+      creationChain.track(key, () => createMultiFactoryComponents(key, provider, keys));
+    }
 
-      return components.get(componentKey);
-    };
+    return components.get(componentKey);
+  };
 
   const defineComponent = (componentKey: string, owner: string, get: () => unknown) => {
     const otherOwner = owners.get(componentKey);
@@ -107,8 +108,11 @@ export const makeDependencies = (providers: unknown): Dependencies => {
     assertValidProvider(key, provider);
 
     if (isMultiFactory(provider)) {
-      for (const componentKey of provider.keys) {
-        defineComponent(componentKey, key, makeMultiFactoryComponentGetter(componentKey, key, provider));
+      // Use the registered keys even if the caller changes the array or replaces the property before resolution.
+      const keys = [...provider.keys];
+
+      for (const componentKey of keys) {
+        defineComponent(componentKey, key, makeMultiFactoryComponentGetter(componentKey, key, provider, keys));
       }
     } else {
       defineComponent(key, key, makeComponentGetter(key, provider));

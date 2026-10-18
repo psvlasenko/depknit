@@ -311,6 +311,41 @@ describe('dependency resolver', () => {
       assert.equal(userService.getIdService(), customerService.getIdService());
     });
 
+    it('keeps the registered keys when their array is mutated', () => {
+      let calls = 0;
+      const keys: ['first', 'second'] = ['first', 'second'];
+      const resolve = makeDependencyResolver({
+        module: {
+          multiFactory: () => {
+            calls++;
+
+            return { first: 1, second: 2 };
+          },
+          keys,
+        },
+      });
+
+      keys.pop();
+
+      assert.deepEqual(resolve('first', 'second'), { first: 1, second: 2 });
+      assert.equal(calls, 1);
+    });
+
+    it('keeps the registered keys when their property is replaced during creation', () => {
+      const provider = {
+        multiFactory: () => {
+          provider.keys = ['first', 'second'];
+          provider.keys.pop();
+
+          return { first: 1, second: 2 };
+        },
+        keys: ['first', 'second'] as ['first', 'second'],
+      };
+      const resolve = makeDependencyResolver({ module: provider });
+
+      assert.deepEqual(resolve('first', 'second'), { first: 1, second: 2 });
+    });
+
     it('is not called, when none of its components requested', () => {
       let calls = 0;
 
