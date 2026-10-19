@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24, 26]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - name: Install the package tarball in a clean project
+        run: |
+          npm pack --pack-destination "$RUNNER_TEMP"
+          TGZ="$(ls "$RUNNER_TEMP"/depknit-*.tgz)"
+          cd "$(mktemp -d)"
+          npm init -y > /dev/null
+          npm install "$TGZ"
+          node --input-type=module -e "import { makeDependencyResolver } from 'depknit'; if (makeDependencyResolver({ a: 1 })('a') !== 1) process.exit(1);"
+          node -e "const { makeDependencyResolver } = require('depknit'); if (makeDependencyResolver({ a: 1 })('a') !== 1) process.exit(1);"
+
+  consumer-types:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - typescript-version: '5.4'
+            extension: mts
+          - typescript-version: '5.8'
+            extension: cts
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Type check a consumer with the minimal TypeScript version
+        run: |
+          npm pack --pack-destination "$RUNNER_TEMP"
+          TGZ="$(ls "$RUNNER_TEMP"/depknit-*.tgz)"
+          cd "$(mktemp -d)"
+          npm init -y > /dev/null
+          npm install "$TGZ" typescript@${{ matrix.typescript-version }}
+          cat > check.${{ matrix.extension }} <<'EOF'
+          import { makeDependencyResolver } from 'depknit';
+
+          const resolve = makeDependencyResolver({
+            port: 8080,
+            server: ({ port }: { port: number }) => ({ port }),
+            urls: {
+              multiFactory: ({ server }: { server: { port: number } }) => ({ url: `http://localhost:${server.port}` }),
+              keys: ['url'],
+            },
+          });
+
+          export const url: string = resolve('url');
+          EOF
+          npx tsc --strict --noEmit --skipLibCheck false --module nodenext --moduleResolution nodenext check.${{ matrix.extension }}
